@@ -26,19 +26,70 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         )
         
         # Register the frontend panel
-        await frontend.async_register_built_in_panel(
-            hass,
-            component_name=DOMAIN,
-            sidebar_title="UFO-R11 SmartIR",
-            sidebar_icon="mdi:remote",
-            frontend_url_path=DOMAIN,
-            config={
-                "js_url": f"/api/{DOMAIN}/static/ufo-r11-panel.js",
-                "css_url": f"/api/{DOMAIN}/static/ufo-r11-styles.css",
-            },
-        )
+        panel_registered_successfully = False
         
-        _LOGGER.info("UFO-R11 SmartIR frontend panel registered successfully")
+        # Try the older method first, potentially for older HA versions
+        if hasattr(frontend, 'async_register_built_in_panel') and \
+           frontend.async_register_built_in_panel is not None:
+            _LOGGER.debug("Attempting to register panel using async_register_built_in_panel")
+            try:
+                await frontend.async_register_built_in_panel(
+                    hass,
+                    component_name=DOMAIN, # Used for namespacing
+                    sidebar_title="UFO-R11 SmartIR",
+                    sidebar_icon="mdi:remote",
+                    frontend_url_path=DOMAIN, # URL path for the panel
+                    config={
+                        "_panel_custom": { # Standard structure for custom panels
+                            "name": f"panel-custom-{DOMAIN.replace('_', '-')}",
+                            "js_url": f"/api/{DOMAIN}/static/ufo-r11-panel.js",
+                            "css_url": f"/api/{DOMAIN}/static/ufo-r11-styles.css",
+                        }
+                    },
+                )
+                panel_registered_successfully = True
+                _LOGGER.info("Panel registered using async_register_built_in_panel")
+            except Exception as e_builtin:
+                _LOGGER.warning(
+                    "async_register_built_in_panel failed: %s. Will try async_register_panel if available.", e_builtin
+                )
+        
+        # If the older method was not available, was None, or failed, try the newer method
+        if not panel_registered_successfully and \
+           hasattr(frontend, 'async_register_panel') and \
+           frontend.async_register_panel is not None:
+            _LOGGER.debug(
+                "Attempting to register panel using async_register_panel."
+            )
+            try:
+                await frontend.async_register_panel(
+                    hass,
+                    frontend_url_path=DOMAIN,
+                    sidebar_title="UFO-R11 SmartIR",
+                    sidebar_icon="mdi:remote",
+                    module_url=f"/api/{DOMAIN}/static/ufo-r11-panel.js",
+                    embed_iframe=True,
+                    require_admin=False,
+                )
+                panel_registered_successfully = True
+                _LOGGER.info("Panel registered using async_register_panel")
+            except Exception as e_panel:
+                _LOGGER.error("async_register_panel also failed: %s", e_panel)
+                # If this also fails, we will fall through to the final error message / raise
+        
+        if panel_registered_successfully:
+            _LOGGER.info("UFO-R11 SmartIR frontend panel registered successfully")
+        else:
+            # This 'else' is reached if neither method was available (was None) or both failed
+            _LOGGER.error(
+                "Failed to register frontend panel. Neither async_register_built_in_panel "
+                "nor async_register_panel were available and not None, or both attempts failed. "
+                "Check Home Assistant version compatibility and frontend component status. "
+                "Review previous logs for specific errors from registration attempts."
+            )
+            raise RuntimeError(
+                "Could not register frontend panel using available methods. See logs for details."
+            )
         
     except Exception as e:
         _LOGGER.error("Failed to register UFO-R11 SmartIR frontend panel: %s", e)
