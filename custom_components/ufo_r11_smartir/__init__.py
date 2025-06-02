@@ -37,7 +37,7 @@ from .const import (
 )
 from .device_manager import DeviceManager
 from .smartir_generator import SmartIRGenerator
-from .api import setup_api
+from .api import async_setup_api
 from .frontend_panel import async_setup_frontend_panel
 
 _LOGGER = logging.getLogger(__name__)
@@ -163,7 +163,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
     # Setup API endpoints
-    await setup_api(hass)
+    await async_setup_api(hass)
     
     # Setup frontend panel
     await async_setup_frontend_panel(hass)
