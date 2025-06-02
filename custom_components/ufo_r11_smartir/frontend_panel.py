@@ -46,6 +46,24 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         raise
 
 
+async def async_setup_frontend_panel(hass: HomeAssistant) -> None:
+    """Set up the UFO-R11 SmartIR frontend panel."""
+    try:
+        # Register the frontend panel
+        await async_register_panel(hass)
+        
+        # Store panel setup state for potential cleanup
+        if DOMAIN not in hass.data:
+            hass.data[DOMAIN] = {}
+        hass.data[DOMAIN]["frontend_panel_registered"] = True
+        
+        _LOGGER.info("UFO-R11 SmartIR frontend panel setup completed")
+        
+    except Exception as e:
+        _LOGGER.error("Failed to setup UFO-R11 SmartIR frontend panel: %s", e)
+        raise
+
+
 async def async_unregister_panel(hass: HomeAssistant) -> None:
     """Unregister the UFO-R11 SmartIR frontend panel."""
     try:

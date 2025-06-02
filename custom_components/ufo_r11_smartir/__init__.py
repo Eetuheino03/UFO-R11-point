@@ -38,7 +38,7 @@ from .const import (
 from .device_manager import DeviceManager
 from .smartir_generator import SmartIRGenerator
 from .api import async_setup_api
-from .frontend_panel import async_setup_frontend_panel
+from .frontend_panel import async_setup_frontend_panel, async_unregister_panel
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -185,7 +185,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     if unload_ok:
         coordinator = hass.data[DOMAIN].pop(entry.entry_id)
-        # Clean up any resources if needed
+        
+        # Clean up frontend panel
+        try:
+            await async_unregister_panel(hass)
+        except Exception as e:
+            _LOGGER.warning("Failed to unregister frontend panel during unload: %s", e)
+        
+        # Clean up any other resources if needed
         
     return unload_ok
 
