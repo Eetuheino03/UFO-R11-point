@@ -131,10 +131,16 @@ ATTR_COMMAND_TIME: Final = "command_time"
 ATTR_AVAILABLE_CODES: Final = "available_codes"
 ATTR_DEVICE_TEMPLATE: Final = "device_template"
 
+# Discovery constants
+CONF_ENABLE_DISCOVERY: Final = "enable_discovery"
+DISCOVERY_TIMEOUT: Final = 60  # seconds
+DEVICE_OFFLINE_TIMEOUT: Final = 600  # 10 minutes
+
 # Default configuration
 DEFAULT_CONFIG: Final = {
     CONF_DEVICE_TYPE: DEVICE_TYPE_AC,
     CONF_CODE_SOURCE: CODE_SOURCE_POINTCODES,
+    CONF_ENABLE_DISCOVERY: True,
 }
 
 # Point-codes dataset size

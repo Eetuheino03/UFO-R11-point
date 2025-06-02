@@ -198,6 +198,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, discovery_info: dict[str, Any]
     ) -> FlowResult:
         """Handle discovery of UFO-R11 devices."""
+        _LOGGER.info("Processing discovered UFO-R11 device: %s", discovery_info)
+        
         # Store discovery info for later use
         self.discovery_info = discovery_info
         
@@ -211,12 +213,45 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_DEVICE_ID: device_id,
                 CONF_DEVICE_NAME: discovery_info.get("name", f"UFO-R11 {device_id[-8:]}"),
                 CONF_MQTT_TOPIC: discovery_info.get("topic", f"zigbee2mqtt/{device_id}"),
+                CONF_DEVICE_TYPE: discovery_info.get("device_type", DEVICE_TYPE_AC),
+                CONF_CODE_SOURCE: discovery_info.get("code_source", CODE_SOURCE_POINTCODES),
             })
             
-            return await self.async_step_device_type()
+            # Show discovery confirmation form
+            return await self.async_step_discovery_confirm()
         
         # Fall back to manual configuration
         return await self.async_step_user()
+    
+    async def async_step_discovery_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Confirm discovery of UFO-R11 device."""
+        if user_input is not None:
+            if user_input.get("confirm_discovery"):
+                # Create config entry directly from discovered data
+                return self.async_create_entry(
+                    title=self.device_config[CONF_DEVICE_NAME],
+                    data=self.device_config,
+                )
+            else:
+                # User declined, allow manual configuration
+                return await self.async_step_user()
+        
+        # Show confirmation form
+        discovery_schema = vol.Schema({
+            vol.Required("confirm_discovery", default=True): bool,
+        })
+        
+        return self.async_show_form(
+            step_id="discovery_confirm",
+            data_schema=discovery_schema,
+            description_placeholders={
+                "device_name": self.device_config.get(CONF_DEVICE_NAME, "Unknown"),
+                "device_id": self.device_config.get(CONF_DEVICE_ID, "Unknown"),
+                "mqtt_topic": self.device_config.get(CONF_MQTT_TOPIC, "Unknown"),
+            },
+        )
 
     @staticmethod
     @callback
@@ -252,6 +287,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(
                 "enable_learning",
                 default=self.config_entry.options.get("enable_learning", True),
+            ): bool,
+            vol.Optional(
+                "enable_discovery",
+                default=self.config_entry.options.get("enable_discovery", True),
             ): bool,
             vol.Optional(
                 "auto_export",

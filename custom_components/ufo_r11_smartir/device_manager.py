@@ -82,8 +82,20 @@ class DeviceManager:
             if code_set:
                 self._ir_manager.add_device_codes(code_set)
                 await self._ir_manager.async_save_device(device_id)
-                _LOGGER.info("Successfully set up device %s with %d commands", 
+                _LOGGER.info("Successfully set up device %s with %d commands",
                            device_id, code_set.get_command_count())
+                return True
+            
+            # If code_set is None and source is Point-codes, create an empty one for learning
+            if code_source == CODE_SOURCE_POINTCODES:
+                _LOGGER.warning("Point-codes setup failed for device %s, creating empty device for learning", device_id)
+                code_set = IRCodeSet(
+                    device_id=device_id,
+                    device_name=device_name,
+                    device_type=device_type,
+                )
+                self._ir_manager.add_device_codes(code_set)
+                await self._ir_manager.async_save_device(device_id)
                 return True
             
             _LOGGER.error("Failed to set up device %s", device_id)
@@ -101,13 +113,25 @@ class DeviceManager:
     ) -> Optional[IRCodeSet]:
         """Set up device using Point-codes dataset."""
         try:
-            # Look for Point-codes file in the integration's data directory
+            # Look for Point-codes file in multiple locations
             data_dir = Path(self.hass.config.config_dir) / "custom_components" / DOMAIN / "data"
             pointcodes_file = data_dir / "Point-codes"
             
+            # Also check the integration's directory directly
             if not pointcodes_file.exists():
-                _LOGGER.error("Point-codes file not found at %s", pointcodes_file)
-                return None
+                import custom_components.ufo_r11_smartir as integration_module
+                integration_dir = Path(integration_module.__file__).parent
+                pointcodes_file = integration_dir / "data" / "Point-codes"
+            
+            if not pointcodes_file.exists():
+                _LOGGER.warning("Point-codes file not found at %s", pointcodes_file)
+                # Try to create empty structure for learning
+                _LOGGER.info("Creating empty device structure for learning instead")
+                return IRCodeSet(
+                    device_id=device_id,
+                    device_name=device_name,
+                    device_type=device_type,
+                )
             
             # Parse Point-codes file
             code_set = self._parser.parse_file(pointcodes_file, device_id, device_name)

@@ -39,6 +39,7 @@ from .device_manager import DeviceManager
 from .smartir_generator import SmartIRGenerator
 from .api import async_setup_api
 from .frontend_panel import async_setup_frontend_panel, async_unregister_panel
+from .discovery import UFODeviceDiscovery
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -181,6 +182,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     # Setup frontend panel
     await async_setup_frontend_panel(hass)
+    
+    # Setup device discovery (only once for the first entry)
+    discovery_key = f"{DOMAIN}_discovery"
+    if discovery_key not in hass.data:
+        discovery = UFODeviceDiscovery(hass)
+        hass.data[discovery_key] = discovery
+        
+        # Start discovery with option to enable/disable
+        discovery_enabled = entry.options.get("enable_discovery", True)
+        if discovery_enabled:
+            await discovery.async_start_discovery()
+            _LOGGER.info("UFO-R11 device discovery enabled")
+        else:
+            _LOGGER.info("UFO-R11 device discovery disabled via options")
 
     # Forward the setup to the platform
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -206,7 +221,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as e:
             _LOGGER.warning("Failed to unregister frontend panel during unload: %s", e)
         
-        # Clean up any other resources if needed
+        # Clean up discovery service if this was the last entry
+        remaining_entries = [e for e in hass.config_entries.async_entries(DOMAIN) if e.entry_id != entry.entry_id]
+        if not remaining_entries:
+            discovery_key = f"{DOMAIN}_discovery"
+            if discovery_key in hass.data:
+                discovery = hass.data.pop(discovery_key)
+                await discovery.async_stop_discovery()
+                _LOGGER.info("UFO-R11 device discovery stopped")
         
     return unload_ok
 
@@ -246,9 +268,21 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         
         try:
             # Start learning session
-            await device_manager.start_learning_session(
+            mqtt_topic = None
+            for entry_id, coordinator in hass.data.get(DOMAIN, {}).items():
+                if coordinator.device_id == device_id:
+                    mqtt_topic = coordinator.mqtt_topic
+                    break
+            
+            if not mqtt_topic:
+                raise Exception("MQTT topic not found for device")
+            
+            await device_manager.async_learn_ir_command(
                 device_id=device_id,
                 command_name=command_name,
+                category="custom",
+                key=command_name.lower().replace(" ", "_"),
+                mqtt_topic=mqtt_topic,
                 timeout=timeout
             )
             
@@ -284,9 +318,17 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
             return
         
         try:
-            # Export SmartIR configuration
-            export_path = await device_manager.export_smartir_config(
-                device_id=device_id,
+            # Export SmartIR configuration using SmartIRGenerator
+            from .smartir_generator import SmartIRGenerator
+            generator = SmartIRGenerator(hass)
+            
+            # Get device codes
+            code_set = await device_manager.async_get_device_codes(device_id)
+            if not code_set:
+                raise Exception("No IR codes found for device")
+            
+            export_path = await generator.async_export_smartir_config(
+                code_set=code_set,
                 output_path=output_path
             )
             
@@ -323,10 +365,18 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         
         try:
             # Import IR codes from file
-            count = await device_manager.import_codes_from_file(
+            success = await device_manager.async_import_codes(
                 device_id=device_id,
-                file_path=file_path
+                file_path=file_path,
+                file_format="pointcodes"
             )
+            
+            if success:
+                # Get count of commands for notification
+                code_set = await device_manager.async_get_device_codes(device_id)
+                count = code_set.get_command_count() if code_set else 0
+            else:
+                raise Exception("Failed to import codes")
             
             hass.components.persistent_notification.async_create(
                 f"Successfully imported {count} IR codes from {file_path}",
@@ -361,9 +411,19 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         
         try:
             # Send test IR command
-            success = await device_manager.send_ir_command(
+            mqtt_topic = None
+            for entry_id, coordinator in hass.data.get(DOMAIN, {}).items():
+                if coordinator.device_id == device_id:
+                    mqtt_topic = coordinator.mqtt_topic
+                    break
+            
+            if not mqtt_topic:
+                raise Exception("MQTT topic not found for device")
+            
+            success = await device_manager.async_test_command(
                 device_id=device_id,
-                ir_code=ir_code
+                ir_code=ir_code,
+                mqtt_topic=mqtt_topic
             )
             
             if success:

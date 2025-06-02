@@ -15,6 +15,24 @@
           "mqtt_topic": "The MQTT topic for your device (e.g., {example_topic})"
         }
       },
+      "discovery": {
+        "title": "UFO-R11 Device Discovered",
+        "description": "A UFO-R11 device has been automatically discovered: {device_name} ({device_id}). Would you like to set it up?",
+        "data": {
+          "device_name": "Device Name"
+        },
+        "data_description": {
+          "device_name": "Customize the name for this device"
+        }
+      },
+      "discovery_confirm": {
+        "title": "Confirm Device Setup",
+        "description": "Configure your discovered UFO-R11 device: {device_name}",
+        "data": {
+          "device_type": "Device Type",
+          "code_source": "IR Code Source"
+        }
+      },
       "device_type": {
         "title": "Device Type Selection",
         "description": "Select the type of device you want to control with {device_name}.",
@@ -57,12 +75,14 @@
         "data": {
           "update_interval": "Update Interval (seconds)",
           "enable_learning": "Enable IR Code Learning",
-          "auto_export": "Auto-export to SmartIR"
+          "auto_export": "Auto-export to SmartIR",
+          "enable_discovery": "Enable Automatic Device Discovery"
         },
         "data_description": {
           "update_interval": "How often to check device status (10-300 seconds)",
           "enable_learning": "Allow learning new IR codes from remotes",
-          "auto_export": "Automatically export learned codes to SmartIR format"
+          "auto_export": "Automatically export learned codes to SmartIR format",
+          "enable_discovery": "Enable or disable automatic discovery of new UFO-R11 devices via MQTT."
         }
       }
     }
