@@ -5,7 +5,9 @@
   "documentation": "https://github.com/Eetuheino03/UFO-R11-point",
   "issue_tracker": "https://github.com/Eetuheino03/UFO-R11-point/issues",
   "dependencies": [
-    "mqtt"
+    "mqtt",
+    "zeroconf",
+    "ssdp"
   ],
   "after_dependencies": [
     "smartir"

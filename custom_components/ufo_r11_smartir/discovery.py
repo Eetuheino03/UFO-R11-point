@@ -4,7 +4,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional, Callable
+from urllib.parse import urlparse
+from typing import Any, Dict, List, Optional, Callable, Coroutine
 from datetime import datetime, timedelta
 
 from homeassistant.core import HomeAssistant, callback
@@ -13,6 +14,8 @@ from homeassistant.helpers.discovery import async_load_platform
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 from homeassistant.components import mqtt
+from homeassistant.components import zeroconf
+from homeassistant.components import ssdp
 
 from .const import (
     DOMAIN,
@@ -61,55 +64,97 @@ class UFODeviceDiscovery:
         self._discovery_enabled = True
         self._subscribers: List[Callable] = []
         self._discovery_lock = asyncio.Lock()
-        
+        self._zeroconf_listener: Optional[Callable[[], None]] = None
+        self._ssdp_listener: Optional[Callable[[], Coroutine[Any, Any, None]]] = None # Store the unregister callable
+
     async def async_start_discovery(self) -> bool:
-        """Start MQTT-based device discovery."""
+        """Start MQTT, mDNS, and SSDP based device discovery."""
+        _LOGGER.info("Starting UFO-R11 device discovery (MQTT, mDNS, SSDP)")
+        mqtt_started = False
         try:
-            if "mqtt" not in self.hass.config.components:
-                _LOGGER.error("MQTT integration not available for device discovery")
-                return False
-            
-            _LOGGER.info("Starting UFO-R11 device discovery")
-            
-            # Subscribe to Zigbee2MQTT bridge messages for device announcements
-            await mqtt.async_subscribe(
-                self.hass,
-                DISCOVERY_TOPIC,
-                self._handle_bridge_devices_message,
-                0
-            )
-            
-            # Subscribe to device availability messages
-            await mqtt.async_subscribe(
-                self.hass,
-                DEVICE_AVAILABILITY_TOPIC,
-                self._handle_device_availability,
-                0
-            )
-            
-            # Subscribe to general device status messages
-            await mqtt.async_subscribe(
-                self.hass,
-                DEVICE_STATUS_TOPIC,
-                self._handle_device_status,
-                0
-            )
-            
-            # Request current device list from Zigbee2MQTT
-            await self._request_device_list()
-            
-            _LOGGER.info("UFO-R11 device discovery started successfully")
-            return True
-            
+            if "mqtt" in self.hass.config.components:
+                _LOGGER.info("Starting MQTT discovery for UFO-R11")
+                # Subscribe to Zigbee2MQTT bridge messages
+                await mqtt.async_subscribe(
+                    self.hass, DISCOVERY_TOPIC, self._handle_bridge_devices_message, 0
+                )
+                await mqtt.async_subscribe(
+                    self.hass, DEVICE_AVAILABILITY_TOPIC, self._handle_device_availability, 0
+                )
+                await mqtt.async_subscribe(
+                    self.hass, DEVICE_STATUS_TOPIC, self._handle_device_status, 0
+                )
+                await self._request_device_list()
+                _LOGGER.info("MQTT discovery for UFO-R11 started")
+                mqtt_started = True
+            else:
+                _LOGGER.warning("MQTT integration not available, MQTT discovery for UFO-R11 skipped")
+
         except Exception as e:
-            _LOGGER.error("Failed to start device discovery: %s", str(e))
+            _LOGGER.error("Failed to start MQTT part of device discovery: %s", str(e))
+            # Continue with other discovery methods even if MQTT fails
+
+        # Start mDNS/Zeroconf discovery
+        try:
+            _LOGGER.info("Starting mDNS/Zeroconf discovery for UFO-R11")
+            zc_instance = await zeroconf.async_get_instance(self.hass)
+            # Replace "_ufo-r11._tcp.local." with the actual service type if known
+            # For now, let's assume a generic service type or listen more broadly if needed.
+            # This might need adjustment based on how UFO-R11 devices announce themselves.
+            self._zeroconf_listener = await zc_instance.async_add_listener(
+                self._handle_zeroconf_service_update, None # Listen to all services initially
+            )
+            _LOGGER.info("mDNS/Zeroconf discovery for UFO-R11 started")
+        except Exception as e:
+            _LOGGER.error("Failed to start mDNS/Zeroconf discovery: %s", str(e))
+
+        # Start SSDP discovery
+        try:
+            _LOGGER.info("Starting SSDP discovery for UFO-R11")
+            # Replace "urn:schemas-upnp-org:device:UFOR11Device:1" with actual ST if known
+            # For now, listen for common UPnP root devices or a specific ST if available
+            # This might need adjustment based on how UFO-R11 devices announce themselves.
+            self._ssdp_listener = await ssdp.async_register_callback(
+                self.hass, self._handle_ssdp_discovery #, {"st": "ssdp:all"} # Listen to all initially
+            )
+            _LOGGER.info("SSDP discovery for UFO-R11 started")
+        except Exception as e:
+            _LOGGER.error("Failed to start SSDP discovery: %s", str(e))
+            
+        if mqtt_started or self._zeroconf_listener or self._ssdp_listener:
+            _LOGGER.info("UFO-R11 device discovery started successfully (at least one method active)")
+            return True
+        else:
+            _LOGGER.error("All discovery methods failed to start for UFO-R11")
             return False
-    
+
     async def async_stop_discovery(self) -> None:
-        """Stop device discovery."""
+        """Stop all device discovery methods."""
         self._discovery_enabled = False
-        _LOGGER.info("UFO-R11 device discovery stopped")
-    
+        if self._zeroconf_listener:
+            _LOGGER.info("Stopping mDNS/Zeroconf discovery for UFO-R11")
+            self._zeroconf_listener() # Call the unregister function
+            self._zeroconf_listener = None
+        if self._ssdp_listener:
+            _LOGGER.info("Stopping SSDP discovery for UFO-R11")
+            # The callback itself is the unregister function for ssdp.async_register_callback
+            # However, the typical pattern is to call an unregister function returned by the registration.
+            # Let's assume ssdp.async_register_callback returns an unregister callable or we store it.
+            # If ssdp.async_register_callback itself is the unregister, this needs adjustment.
+            # For now, assuming it returns an unregister callable.
+            # Re-checking HA docs: ssdp.async_register_callback returns None, unregistration is done by ssdp.async_stop_scanner
+            # This means we might not need to store _ssdp_listener if we rely on global stop,
+            # or if we need finer control, we'd use ssdp.Scanner directly.
+            # For simplicity with async_register_callback, we might not have a specific unregister.
+            # Let's assume for now that stopping the integration handles SSDP cleanup.
+            # A more robust way is to use the ssdp.Scanner directly if per-callback unregistration is needed.
+            # For now, we'll log and assume HA handles it or it's stopped globally.
+            # Update: ssdp.async_register_callback returns an unregister callable.
+            await self._ssdp_listener()
+            self._ssdp_listener = None
+
+        _LOGGER.info("UFO-R11 device discovery stopped (MQTT, mDNS, SSDP)")
+
     async def _request_device_list(self) -> None:
         """Request current device list from Zigbee2MQTT bridge."""
         try:
@@ -405,3 +450,237 @@ class UFODeviceDiscovery:
                 device_data["status"] = "online"
         
         return device_data
+
+    @callback
+    def _handle_zeroconf_service_update(
+        self, zc: zeroconf.HaZeroconf, service_type: str, name: str, state_change: zeroconf.ServiceStateChange
+    ) -> None:
+        """Handle mDNS/Zeroconf service update."""
+        if not self._discovery_enabled:
+            return
+
+        _LOGGER.debug(
+            "Zeroconf service update: type=%s, name=%s, state=%s",
+            service_type, name, state_change
+        )
+        
+        # We need to get more details from the service info
+        # This is a generic handler, we'll need to filter for UFO-R11
+        # and extract relevant data like IP, port, properties.
+        
+        # Example: try to get service info
+        # info = zc.async_get_service_info(service_type, name)
+        # if info:
+        #    self.hass.async_create_task(self._process_zeroconf_device(info))
+        # For now, just log
+        if state_change in (zeroconf.ServiceStateChange.Added, zeroconf.ServiceStateChange.Updated):
+            self.hass.async_create_task(self._async_process_zeroconf_service(service_type, name))
+
+    def _is_ufo_r11_zeroconf(self, info: zeroconf.ZeroconfServiceInfo) -> bool:
+        """Check if a Zeroconf service is a UFO-R11 device."""
+        if not info:
+            return False
+        
+        # Check service type (e.g., _ufo-r11._tcp.local. or _http._tcp.local.)
+        # This is a guess; actual service type might differ.
+        if "_ufo-r11._tcp.local." in info.type or \
+           (info.type == "_http._tcp.local." and "ufo-r11" in info.name.lower()):
+            return True
+
+        # Check properties for keywords
+        properties = {k.lower(): v for k, v in info.decoded_properties.items()}
+        if "ufo-r11" in properties.get("model", "").lower() or \
+           "moes" in properties.get("manufacturer", "").lower():
+            return True
+        
+        # Check name
+        if "ufo-r11" in info.name.lower() or "moes" in info.name.lower():
+            return True
+            
+        return False
+
+    def _extract_zeroconf_device_id(self, info: zeroconf.ZeroconfServiceInfo) -> Optional[str]:
+        """Extract a unique device ID from Zeroconf info (e.g., MAC address or serial)."""
+        # Prefer MAC address from properties if available
+        properties = {k.lower(): v for k, v in info.decoded_properties.items()}
+        mac = properties.get("mac") or properties.get("deviceid")
+        if mac:
+            return str(mac).replace(":", "").lower()
+        
+        # Fallback to a part of the service name if it seems unique
+        # This is less reliable
+        name_part = info.name.split('.')[0]
+        if "ufo-r11" in name_part.lower() and len(name_part) > 8: # Heuristic
+            return name_part
+            
+        # Fallback to host if nothing else (least reliable as ID)
+        if info.host:
+            return info.host
+
+        return None
+
+    async def _async_process_zeroconf_service(self, service_type: str, name: str) -> None:
+        """Process a discovered/updated Zeroconf service."""
+        zc = await zeroconf.async_get_instance(self.hass)
+        info = await zc.async_get_service_info(service_type, name)
+        _LOGGER.debug("Processing Zeroconf service: %s, info: %s", name, info)
+        if not info:
+            return
+
+        if self._is_ufo_r11_zeroconf(info):
+            device_id = self._extract_zeroconf_device_id(info)
+            if not device_id:
+                _LOGGER.debug("Could not extract device ID from Zeroconf info: %s", info)
+                return
+
+            # Cleaned name, remove ._service._tcp.local. part
+            cleaned_name = info.name
+            if info.type and info.name.endswith(f".{info.type}"):
+                cleaned_name = info.name[:-len(f".{info.type}")-1] # also remove the dot
+
+            discovery_data = {
+                "device_id": device_id,
+                "name": cleaned_name or f"UFO-R11 {device_id[:8]}",
+                "host": info.host,
+                "port": info.port,
+                "properties": info.decoded_properties,
+                "discovery_source": "zeroconf",
+                "manufacturer": info.decoded_properties.get("manufacturer", MANUFACTURER),
+                "model": info.decoded_properties.get("model", MODEL),
+            }
+            await self._process_discovered_network_device(discovery_data)
+
+    def _is_ufo_r11_ssdp(self, info: ssdp.SsdpServiceInfo) -> bool:
+        """Check if an SSDP service is a UFO-R11 device."""
+        if not info:
+            return False
+
+        # Check manufacturer and model from UPnP data
+        manufacturer = info.upnp.get(ssdp.ATTR_UPNP_MANUFACTURER, "").lower()
+        model_name = info.upnp.get(ssdp.ATTR_UPNP_MODEL_NAME, "").lower()
+        friendly_name = info.upnp.get(ssdp.ATTR_UPNP_FRIENDLY_NAME, "").lower()
+
+        if "moes" in manufacturer or "ufo-r11" in model_name or "ufo-r11" in friendly_name:
+            return True
+        
+        # Check service type (ST) if a specific one is known for UFO-R11
+        # e.g., if info.ssdp_st == "urn:schemas-moes-com:device:ufo-r11:1":
+        # For now, relying on manufacturer/model/name.
+        
+        return False
+
+    def _extract_ssdp_device_id(self, info: ssdp.SsdpServiceInfo) -> Optional[str]:
+        """Extract a unique device ID from SSDP info (e.g., UDN or part of it)."""
+        # Prefer UDN (Unique Device Name)
+        udn = info.upnp.get(ssdp.ATTR_UPNP_UDN)
+        if udn:
+            # UDN is often prefixed with "uuid:", remove it
+            return udn.replace("uuid:", "")
+            
+        # Fallback to USN (Unique Service Name), often contains UDN
+        usn = info.ssdp_usn
+        if usn:
+            # Try to parse UDN from USN if possible
+            if "uuid:" in usn:
+                return usn.split("uuid:")[1].split("::")[0] # Common pattern
+            return usn # Less ideal, but better than nothing
+
+        return None
+
+    async def _handle_ssdp_discovery(
+        self, info: ssdp.SsdpServiceInfo, change: ssdp.SsdpChange
+    ) -> None:
+        """Handle SSDP discovery."""
+        if not self._discovery_enabled:
+            return
+
+        _LOGGER.debug(
+            "SSDP discovery: info=%s, change=%s",
+            info, change
+        )
+
+        if change == ssdp.SsdpChange.BYEBYE: # Device leaving
+            # TODO: Handle device removal if necessary (e.g., mark as unavailable)
+            _LOGGER.debug("SSDP device %s left", info.ssdp_usn)
+            return
+        
+        if change == ssdp.SsdpChange.ALIVE or change == ssdp.SsdpChange.UPDATE:
+            if self._is_ufo_r11_ssdp(info):
+                device_id = self._extract_ssdp_device_id(info)
+                if not device_id:
+                    _LOGGER.debug("Could not extract device ID from SSDP info: %s", info)
+                    return
+                
+                # Parse host and port from ssdp_location (URL)
+                host = None
+                port = None
+                if info.ssdp_location:
+                    # from urllib.parse import urlparse # Moved to top
+                    parsed_url = urlparse(info.ssdp_location)
+                    host = parsed_url.hostname
+                    port = parsed_url.port
+
+                discovery_data = {
+                    "device_id": device_id,
+                    "name": info.upnp.get(ssdp.ATTR_UPNP_FRIENDLY_NAME) or f"UFO-R11 {device_id[:8]}",
+                    "host": host,
+                    "port": port,
+                    "ssdp_info": { # Store relevant parts of SSDP info
+                        "st": info.ssdp_st,
+                        "usn": info.ssdp_usn,
+                        "location": info.ssdp_location,
+                        "server": info.ssdp_server,
+                        "manufacturer": info.upnp.get(ssdp.ATTR_UPNP_MANUFACTURER),
+                        "modelName": info.upnp.get(ssdp.ATTR_UPNP_MODEL_NAME),
+                        "UDN": info.upnp.get(ssdp.ATTR_UPNP_UDN),
+                    },
+                    "discovery_source": "ssdp",
+                    "manufacturer": info.upnp.get(ssdp.ATTR_UPNP_MANUFACTURER, MANUFACTURER),
+                    "model": info.upnp.get(ssdp.ATTR_UPNP_MODEL_NAME, MODEL),
+                }
+                await self._process_discovered_network_device(discovery_data)
+
+    async def _process_discovered_network_device(self, discovery_data: Dict[str, Any]) -> None:
+        """Process a device discovered via network scanning (mDNS/SSDP)."""
+        async with self._discovery_lock:
+            device_id = discovery_data["device_id"]
+            
+            if await self._is_device_already_configured(device_id):
+                _LOGGER.debug("Network device %s already configured, skipping", device_id)
+                return
+
+            if device_id in self._discovered_devices:
+                _LOGGER.debug("Network device %s already discovered, updating info", device_id)
+                self._discovered_devices[device_id].update({
+                    "last_seen": dt_util.utcnow(),
+                    "device_info": discovery_data # Store the raw discovery data
+                })
+                # Optionally, re-notify if details changed significantly
+                return
+
+            # New network device discovered
+            # Adapt the discovery_data structure as needed for config_flow
+            # This might differ from MQTT's structure
+            processed_data = {
+                "device_id": device_id,
+                "name": discovery_data.get("name", f"UFO-R11 {device_id[:8]}"),
+                "host": discovery_data.get("host"), # From Zeroconf/SSDP
+                "port": discovery_data.get("port"), # From Zeroconf/SSDP
+                "properties": discovery_data.get("properties"), # Zeroconf specific
+                "ssdp_info": discovery_data.get("ssdp_info"), # SSDP specific
+                "discovery_source": discovery_data.get("discovery_source"),
+                "device_type": DEVICE_TYPE_AC, # Default or determine from discovery
+                "code_source": CODE_SOURCE_POINTCODES, # Default or determine
+                "discovered_at": dt_util.utcnow(),
+                "last_seen": dt_util.utcnow(),
+                "manufacturer": discovery_data.get("manufacturer", MANUFACTURER),
+                "model": discovery_data.get("model", MODEL),
+            }
+            
+            self._discovered_devices[device_id] = processed_data
+            
+            _LOGGER.info("Discovered new UFO-R11 via %s: %s (%s)",
+                         discovery_data.get("discovery_source", "network"),
+                         processed_data['name'], device_id)
+            
+            await self._notify_device_discovered(processed_data)

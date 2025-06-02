@@ -209,14 +209,42 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
             
             # Pre-populate form with discovered information
+            device_name = discovery_info.get("name", f"UFO-R11 {device_id[-8:]}")
+            mqtt_topic = discovery_info.get("topic") # MQTT specific
+            host = discovery_info.get("host") # Zeroconf/SSDP specific
+            port = discovery_info.get("port") # Zeroconf/SSDP specific
+            discovery_source = discovery_info.get("discovery_source", "unknown")
+
             self.device_config.update({
                 CONF_DEVICE_ID: device_id,
-                CONF_DEVICE_NAME: discovery_info.get("name", f"UFO-R11 {device_id[-8:]}"),
-                CONF_MQTT_TOPIC: discovery_info.get("topic", f"zigbee2mqtt/{device_id}"),
+                CONF_DEVICE_NAME: device_name,
                 CONF_DEVICE_TYPE: discovery_info.get("device_type", DEVICE_TYPE_AC),
                 CONF_CODE_SOURCE: discovery_info.get("code_source", CODE_SOURCE_POINTCODES),
+                # Store discovery source and related network info
+                "discovery_source": discovery_source,
+                "host": host,
+                "port": port,
             })
-            
+
+            # MQTT topic is still primary for this integration's current device comms
+            # If not an MQTT discovery, we might need a placeholder or adapt further.
+            # For now, if it's not MQTT, we'll construct a potential default or leave it empty
+            # and rely on the user to confirm/provide if needed, or adapt the integration
+            # to use host/port directly if that's the new communication method.
+            # Assuming MQTT is still the core communication method for IR commands.
+            if mqtt_topic:
+                self.device_config[CONF_MQTT_TOPIC] = mqtt_topic
+            elif host : # If discovered via network, create a placeholder topic or decide strategy
+                # This part depends on how non-MQTT devices would be controlled.
+                # If they still use MQTT via a bridge, this topic might be derivable.
+                # If they use direct IP communication, CONF_MQTT_TOPIC might become optional/irrelevant.
+                # For now, let's assume a default pattern if it's a network discovery
+                # that might still be bridged to MQTT by some other means, or user needs to fill it.
+                self.device_config[CONF_MQTT_TOPIC] = f"{discovery_info.get(CONF_MQTT_TOPIC, f'ufo_r11/{device_id}')}"
+            else: # Fallback if no topic and no host
+                 self.device_config[CONF_MQTT_TOPIC] = f"zigbee2mqtt/{device_id}"
+
+
             # Show discovery confirmation form
             return await self.async_step_discovery_confirm()
         
@@ -249,7 +277,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "device_name": self.device_config.get(CONF_DEVICE_NAME, "Unknown"),
                 "device_id": self.device_config.get(CONF_DEVICE_ID, "Unknown"),
-                "mqtt_topic": self.device_config.get(CONF_MQTT_TOPIC, "Unknown"),
+                "mqtt_topic": self.device_config.get(CONF_MQTT_TOPIC, "N/A if direct IP"),
+                "host": self.device_config.get("host", "N/A"),
+                "port": self.device_config.get("port", "N/A"),
+                "discovery_source": self.device_config.get("discovery_source", "Unknown"),
             },
         )
 

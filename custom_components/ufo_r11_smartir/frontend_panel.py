@@ -47,14 +47,20 @@ async def async_register_panel(hass: HomeAssistant) -> None:
 
 async def async_setup_frontend_panel(hass: HomeAssistant) -> None:
     """Set up the UFO-R11 SmartIR frontend panel."""
+    # Check if panel setup has already been successfully completed
+    if hass.data.get(DOMAIN, {}).get("frontend_panel_registered", False):
+        _LOGGER.debug(
+            "UFO-R11 SmartIR frontend panel '%s' already marked as registered. Skipping setup.",
+            DOMAIN
+        )
+        return
+
     try:
         # Register the frontend panel
         await async_register_panel(hass)
         
-        # Store panel setup state for potential cleanup
-        if DOMAIN not in hass.data:
-            hass.data[DOMAIN] = {}
-        hass.data[DOMAIN]["frontend_panel_registered"] = True
+        # Store panel setup state to indicate successful registration
+        hass.data.setdefault(DOMAIN, {})["frontend_panel_registered"] = True
         
         _LOGGER.info("UFO-R11 SmartIR frontend panel setup completed")
         
