@@ -11,11 +11,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.const import (
     UnitOfTemperature,
 )
-from homeassistant.components.climate.const import (
-    HVACMode,
-    FanMode,
-    SwingMode,
-)
+# Removed unused imports from homeassistant.components.climate.const
+# The non-existent enums were causing import errors and were not used
 
 from .ir_codes import IRCodeSet, IRCodeManager
 from .const import (
