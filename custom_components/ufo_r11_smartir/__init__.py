@@ -126,15 +126,29 @@ class UFODataUpdateCoordinator(DataUpdateCoordinator):
         try:
             # Check device availability via MQTT
             # This is a placeholder for actual device status checking
+            _LOGGER.debug("DEBUG: Attempting to get current UTC time")
+            try:
+                # Try modern HA datetime utility
+                from homeassistant.util import dt as dt_util
+                current_time = dt_util.utcnow()
+                _LOGGER.debug("DEBUG: Successfully got time using dt_util.utcnow()")
+            except AttributeError as dt_err:
+                _LOGGER.error("DEBUG: dt_util.utcnow() failed: %s", dt_err)
+                # Fallback to standard datetime
+                from datetime import datetime, timezone
+                current_time = datetime.now(timezone.utc)
+                _LOGGER.debug("DEBUG: Using fallback datetime.now(timezone.utc)")
+            
             return {
                 "available": True,
-                "last_seen": self.hass.helpers.dt.utcnow(),
+                "last_seen": current_time,
                 "device_id": self.device_id,
                 "device_name": self.device_name,
                 "topic": self.mqtt_topic,
                 "device_manager": self.device_manager,
             }
         except Exception as exception:
+            _LOGGER.error("DEBUG: Exception in _async_update_data: %s", exception)
             raise UpdateFailed(exception) from exception
 
 

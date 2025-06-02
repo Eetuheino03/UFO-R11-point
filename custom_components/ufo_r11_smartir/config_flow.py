@@ -232,7 +232,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
+        _LOGGER.debug("DEBUG: Initializing OptionsFlowHandler with modern HA pattern")
+        _LOGGER.info("DEBUG: Using modern Home Assistant inheritance pattern!")
+        super().__init__()
+        _LOGGER.debug("DEBUG: OptionsFlow initialized successfully")
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None

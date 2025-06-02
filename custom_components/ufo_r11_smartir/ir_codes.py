@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 from pathlib import Path
+import aiofiles
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
@@ -279,8 +280,12 @@ class IRCodeManager:
         storage_file = self._storage_path / f"{device_id}.json"
         if storage_file.exists():
             try:
-                with open(storage_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
+                _LOGGER.debug("DEBUG: About to perform NON-BLOCKING async file read on: %s", storage_file)
+                _LOGGER.info("DEBUG: Using aiofiles for non-blocking IR codes file read!")
+                async with aiofiles.open(storage_file, 'r', encoding='utf-8') as f:
+                    content = await f.read()
+                    data = json.loads(content)
+                _LOGGER.debug("DEBUG: File read completed successfully")
                 code_set = IRCodeSet.from_dict(data)
                 self._code_sets[device_id] = code_set
                 _LOGGER.info("Loaded IR code set for device %s with %d commands", 
@@ -301,8 +306,12 @@ class IRCodeManager:
             storage_file = self._storage_path / f"{device_id}.json"
             code_set = self._code_sets[device_id]
             
-            with open(storage_file, 'w', encoding='utf-8') as f:
-                json.dump(code_set.to_dict(), f, indent=2, ensure_ascii=False)
+            _LOGGER.debug("DEBUG: About to perform NON-BLOCKING async file write to: %s", storage_file)
+            _LOGGER.info("DEBUG: Using aiofiles for non-blocking IR codes file write!")
+            async with aiofiles.open(storage_file, 'w', encoding='utf-8') as f:
+                content = json.dumps(code_set.to_dict(), indent=2, ensure_ascii=False)
+                await f.write(content)
+            _LOGGER.debug("DEBUG: File write completed successfully")
             
             _LOGGER.info("Saved IR code set for device %s", device_id)
             return True

@@ -5,6 +5,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+import aiofiles
 
 from .ir_codes import IRCommand, IRCodeSet
 from .const import (
@@ -138,7 +139,7 @@ class PointCodesParser:
         _LOGGER.warning("Unknown command label: %s", label)
         return None
     
-    def parse_file(self, file_path: str | Path, device_id: str, device_name: str) -> Optional[IRCodeSet]:
+    async def parse_file(self, file_path: str | Path, device_id: str, device_name: str) -> Optional[IRCodeSet]:
         """Parse Point-codes file and create IRCodeSet."""
         try:
             file_path = Path(file_path)
@@ -160,8 +161,13 @@ class PointCodesParser:
             parsed_commands = 0
             skipped_commands = 0
             
-            with open(file_path, 'r', encoding='utf-8') as f:
-                for line_num, line in enumerate(f, 1):
+            _LOGGER.debug("DEBUG: About to perform NON-BLOCKING async file read on: %s", file_path)
+            _LOGGER.info("DEBUG: Using aiofiles for non-blocking file operations!")
+            async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+                _LOGGER.debug("DEBUG: Async file opened successfully, reading lines...")
+                async for line in f:
+                    line_num = getattr(f, '_line_num', 0) + 1
+                    setattr(f, '_line_num', line_num)
                     parsed_line = self._parse_line(line)
                     if not parsed_line:
                         continue
