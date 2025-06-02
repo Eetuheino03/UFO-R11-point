@@ -101,11 +101,11 @@ class UFODataUpdateCoordinator(DataUpdateCoordinator):
                 f"custom_components/{DOMAIN}/data/Point-codes"
             )
             
-            await self.device_manager.setup_device_from_pointcodes(
+            await self.device_manager.async_setup_device(
                 device_id=self.device_id,
                 device_name=self.device_name,
-                pointcodes_file=pointcodes_path,
-                mqtt_topic=self.mqtt_topic
+                device_type=DEVICE_TYPE_AC,
+                code_source=CODE_SOURCE_POINTCODES
             )
             
             _LOGGER.info(
