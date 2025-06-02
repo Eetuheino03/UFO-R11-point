@@ -1,0 +1,28 @@
+{
+  "domain": "ufo_r11_smartir",
+  "name": "UFO-R11 SmartIR",
+  "version": "1.0.0",
+  "documentation": "https://github.com/UFO-R11/ufo-r11-smartir",
+  "issue_tracker": "https://github.com/UFO-R11/ufo-r11-smartir/issues",
+  "dependencies": [
+    "mqtt"
+  ],
+  "after_dependencies": [
+    "smartir"
+  ],
+  "codeowners": [
+    "@ufo-r11"
+  ],
+  "config_flow": true,
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "requirements": [
+    "paho-mqtt>=1.6.0"
+  ],
+  "supported_brands": [
+    "MOES"
+  ],
+  "platforms": [
+    "climate"
+  ]
+}

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UFO-R11 SmartIR</title>
+    
+    <!-- Load Home Assistant Frontend Components -->
+    <script type="module" src="/frontend_latest/custom-elements-es5-adapter.js"></script>
+    <script type="module" src="/frontend_latest/custom-elements.min.js"></script>
+    <script type="module" src="/frontend_latest/core.js"></script>
+    
+    <!-- Load UFO-R11 Styles -->
+    <link rel="stylesheet" href="./ufo-r11-styles.css">
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--paper-font-body1_-_font-family, 'Roboto', 'Noto', sans-serif);
+            background-color: var(--primary-background-color, #fafafa);
+            color: var(--primary-text-color, #212121);
+            line-height: 1.4;
+        }
+        
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: var(--primary-background-color, #fafafa);
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--divider-color, #e0e0e0);
+            border-top: 4px solid var(--primary-color, #2196F3);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: var(--secondary-text-color, #757575);
+            font-size: 16px;
+        }
+        
+        .error-container {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: var(--primary-background-color, #fafafa);
+            text-align: center;
+            padding: 24px;
+        }
+        
+        .error-icon {
+            font-size: 48px;
+            color: var(--error-color, #f44336);
+            margin-bottom: 16px;
+        }
+        
+        .error-title {
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--primary-text-color, #212121);
+            margin-bottom: 8px;
+        }
+        
+        .error-message {
+            color: var(--secondary-text-color, #757575);
+            margin-bottom: 24px;
+            max-width: 400px;
+        }
+        
+        .error-button {
+            background: var(--primary-color, #2196F3);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 12px 24px;
+            font-size: 14px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        
+        .error-button:hover {
+            background: var(--primary-color-dark, #1976D2);
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-container" class="loading-container">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading UFO-R11 SmartIR Panel...</div>
+    </div>
+    
+    <!-- Error Screen -->
+    <div id="error-container" class="error-container">
+        <div class="error-icon">⚠️</div>
+        <h2 class="error-title">Failed to Load</h2>
+        <p class="error-message">
+            Unable to load the UFO-R11 SmartIR panel. Please check your connection and try again.
+        </p>
+        <button class="error-button" onclick="window.location.reload()">
+            Retry
+        </button>
+    </div>
+    
+    <!-- Main Application Container -->
+    <div id="ufo-r11-app" style="display: none;">
+        <ufo-r11-smartir></ufo-r11-smartir>
+    </div>
+<!-- Notifications Container -->
+    <div id="ufo-notifications" class="ufo-notifications-container"></div>
+
+    <!-- Load UFO-R11 JavaScript Modules -->
+    <script>
+        // Global error handler
+        window.addEventListener('error', function(e) {
+            console.error('UFO-R11 Panel Error:', e.error);
+            showError('JavaScript Error: ' + e.message);
+        });
+        
+        // Global unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('UFO-R11 Panel Promise Rejection:', e.reason);
+            showError('Promise Rejection: ' + (e.reason?.message || e.reason));
+        });
+        
+        function showError(message) {
+            const loadingContainer = document.getElementById('loading-container');
+            const errorContainer = document.getElementById('error-container');
+            const appContainer = document.getElementById('ufo-r11-app');
+            
+            loadingContainer.style.display = 'none';
+            appContainer.style.display = 'none';
+            errorContainer.style.display = 'flex';
+            
+            const errorMessage = errorContainer.querySelector('.error-message');
+            if (message) {
+                errorMessage.textContent = message;
+            }
+        }
+        
+        function showApp() {
+            const loadingContainer = document.getElementById('loading-container');
+            const errorContainer = document.getElementById('error-container');
+            const appContainer = document.getElementById('ufo-r11-app');
+            
+            loadingContainer.style.display = 'none';
+            errorContainer.style.display = 'none';
+            appContainer.style.display = 'block';
+        }
+        
+        // Load dependencies and initialize the application
+        async function initializeApp() {
+            try {
+                console.log('UFO-R11 SmartIR Panel: Starting initialization...');
+                
+                // Wait for Home Assistant to be ready
+                if (typeof window.hassConnection === 'undefined') {
+                    // Try to get from parent frame if in iframe
+                    if (window.parent && window.parent.hassConnection) {
+                        window.hassConnection = window.parent.hassConnection;
+                        window.hass = window.parent.hass;
+                    } else {
+                        console.warn('Home Assistant connection not found, continuing without it');
+                    }
+                }
+                
+                // Load the learning interface module first
+                const learningScript = document.createElement('script');
+                learningScript.type = 'module';
+                learningScript.src = './ufo-r11-learning.js';
+                learningScript.onerror = () => {
+                    throw new Error('Failed to load learning interface module');
+                };
+                
+                await new Promise((resolve, reject) => {
+                    learningScript.onload = resolve;
+                    learningScript.onerror = reject;
+                    document.head.appendChild(learningScript);
+                });
+                
+                console.log('UFO-R11 SmartIR Panel: Learning module loaded');
+                
+                // Load the main panel module
+                const panelScript = document.createElement('script');
+                panelScript.type = 'module';
+                panelScript.src = './ufo-r11-panel.js';
+                panelScript.onerror = () => {
+                    throw new Error('Failed to load main panel module');
+                };
+                
+                await new Promise((resolve, reject) => {
+                    panelScript.onload = resolve;
+                    panelScript.onerror = reject;
+                    document.head.appendChild(panelScript);
+                });
+                
+                console.log('UFO-R11 SmartIR Panel: Main panel module loaded');
+                
+                // Wait a bit for modules to initialize
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Initialize the panel if needed
+                if (typeof window.ufoPanel === 'undefined' && typeof window.UFOSmartIRPanel !== 'undefined') {
+                    window.ufoPanel = new window.UFOSmartIRPanel();
+                    
+                    // Set Home Assistant connection if available
+                    if (window.hass) {
+                        window.ufoPanel.hass = window.hass;
+                    }
+                }
+                
+                console.log('UFO-R11 SmartIR Panel: Initialization complete');
+                showApp();
+                
+            } catch (error) {
+                console.error('UFO-R11 SmartIR Panel: Initialization failed:', error);
+                showError('Initialization failed: ' + error.message);
+            }
+        }
+        
+        // Start initialization when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
+        
+        // Handle Home Assistant events
+        window.addEventListener('message', function(event) {
+            // Handle messages from Home Assistant parent frame
+            if (event.data && event.data.type === 'hass-connection') {
+                window.hassConnection = event.data.connection;
+                window.hass = event.data.hass;
+                
+                if (window.ufoPanel) {
+                    window.ufoPanel.hass = window.hass;
+                    console.log('UFO-R11 SmartIR Panel: Home Assistant connection updated');
+                }
+            }
+        });
+        
+        // Fallback: Show app after 10 seconds if still loading
+        setTimeout(() => {
+            const loadingContainer = document.getElementById('loading-container');
+            if (loadingContainer.style.display !== 'none') {
+                console.warn('UFO-R11 SmartIR Panel: Initialization timeout, showing app anyway');
+                showApp();
+            }
+        }, 10000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,225 @@
+learn_ir_code:
+  name: Learn IR Code
+  description: Learn a new IR code from a remote control
+  fields:
+    device_id:
+      name: Device
+      description: UFO-R11 device to learn the IR code with
+      required: true
+      selector:
+        device:
+          integration: ufo_r11_smartir
+    command_name:
+      name: Command Name
+      description: Name for the learned IR command (e.g., "power_on", "temp_22")
+      required: true
+      selector:
+        text:
+          type: text
+    timeout:
+      name: Learning Timeout
+      description: Maximum time to wait for IR signal (seconds)
+      default: 30
+      selector:
+        number:
+          min: 5
+          max: 120
+          unit_of_measurement: seconds
+
+export_smartir:
+  name: Export SmartIR Configuration
+  description: Export device configuration as SmartIR-compatible JSON file
+  fields:
+    device_id:
+      name: Device
+      description: UFO-R11 device to export configuration for
+      required: true
+      selector:
+        device:
+          integration: ufo_r11_smartir
+    output_path:
+      name: Output File Path
+      description: Path where to save the SmartIR JSON file (optional, defaults to /config/smartir_export/)
+      required: false
+      selector:
+        text:
+          type: text
+
+import_codes:
+  name: Import IR Codes
+  description: Import IR codes from a file (JSON, CSV, or SmartIR format)
+  fields:
+    device_id:
+      name: Device
+      description: UFO-R11 device to import codes for
+      required: true
+      selector:
+        device:
+          integration: ufo_r11_smartir
+    file_path:
+      name: Import File Path
+      description: Path to the file containing IR codes to import
+      required: true
+      selector:
+        text:
+          type: text
+    file_format:
+      name: File Format
+      description: Format of the import file
+      default: "auto"
+      selector:
+        select:
+          options:
+            - label: "Auto-detect"
+              value: "auto"
+            - label: "SmartIR JSON"
+              value: "smartir"
+            - label: "UFO-R11 JSON"
+              value: "ufo_json"
+            - label: "CSV"
+              value: "csv"
+    overwrite:
+      name: Overwrite Existing
+      description: Overwrite existing codes with same names
+      default: false
+      selector:
+        boolean:
+
+test_command:
+  name: Test IR Command
+  description: Test an IR command by sending it to the device
+  fields:
+    device_id:
+      name: Device
+      description: UFO-R11 device to send the command to
+      required: true
+      selector:
+        device:
+          integration: ufo_r11_smartir
+    ir_code:
+      name: IR Code
+      description: Base64-encoded IR code to send
+      required: true
+      selector:
+        text:
+          type: text
+          multiline: true
+    command_name:
+      name: Command Name
+      description: Optional name for the command (for logging purposes)
+      required: false
+      selector:
+        text:
+          type: text
+
+send_raw_command:
+  name: Send Raw IR Command
+  description: Send a raw IR command with specific parameters
+  fields:
+    device_id:
+      name: Device
+      description: UFO-R11 device to send the command to
+      required: true
+      selector:
+        device:
+          integration: ufo_r11_smartir
+    command_type:
+      name: Command Type
+      description: Type of command to send
+      required: true
+      selector:
+        select:
+          options:
+            - label: "Power"
+              value: "power"
+            - label: "Temperature"
+              value: "temperature"
+            - label: "HVAC Mode"
+              value: "hvac_mode"
+            - label: "Fan Mode"
+              value: "fan_mode"
+            - label: "Swing Mode"
+              value: "swing_mode"
+            - label: "Custom"
+              value: "custom"
+    temperature:
+      name: Temperature
+      description: Target temperature (for temperature commands)
+      required: false
+      selector:
+        number:
+          min: 16
+          max: 32
+          unit_of_measurement: "°C"
+    hvac_mode:
+      name: HVAC Mode
+      description: HVAC operation mode
+      required: false
+      selector:
+        select:
+          options:
+            - label: "Off"
+              value: "off"
+            - label: "Cool"
+              value: "cool"
+            - label: "Heat"
+              value: "heat"
+            - label: "Dry"
+              value: "dry"
+            - label: "Fan Only"
+              value: "fan_only"
+            - label: "Auto"
+              value: "auto"
+            - label: "Sleep"
+              value: "sleep"
+    fan_mode:
+      name: Fan Mode
+      description: Fan speed mode
+      required: false
+      selector:
+        select:
+          options:
+            - label: "Low"
+              value: "low"
+            - label: "Medium"
+              value: "medium"
+            - label: "High"
+              value: "high"
+            - label: "Auto"
+              value: "auto"
+    swing_mode:
+      name: Swing Mode
+      description: Swing operation mode
+      required: false
+      selector:
+        select:
+          options:
+            - label: "Off"
+              value: "off"
+            - label: "Vertical"
+              value: "vertical"
+    custom_value:
+      name: Custom Value
+      description: Custom parameter value (for custom commands)
+      required: false
+      selector:
+        text:
+          type: text
+
+clear_learned_codes:
+  name: Clear Learned Codes
+  description: Clear all learned IR codes for a device
+  fields:
+    device_id:
+      name: Device
+      description: UFO-R11 device to clear codes for
+      required: true
+      selector:
+        device:
+          integration: ufo_r11_smartir
+    confirm:
+      name: Confirm Deletion
+      description: Confirm that you want to delete all learned codes (this cannot be undone)
+      required: true
+      selector:
+        boolean:

@@ -1,0 +1,137 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UFO-R11 SmartIR Setup",
+        "description": "Set up your UFO-R11 SmartIR device. Please ensure your UFO-R11 device is connected to Zigbee2MQTT and the MQTT integration is configured in Home Assistant.",
+        "data": {
+          "device_id": "Device ID (from Zigbee2MQTT)",
+          "device_name": "Device Name",
+          "mqtt_topic": "MQTT Topic"
+        },
+        "data_description": {
+          "device_id": "The IEEE address or friendly name of your UFO-R11 device (e.g., 0x00158d00012345ab)",
+          "device_name": "A friendly name for your device (e.g., 'Living Room AC')",
+          "mqtt_topic": "The MQTT topic for your device (e.g., zigbee2mqtt/UFO-R11-Device)"
+        }
+      },
+      "device_type": {
+        "title": "Device Type Selection",
+        "description": "Select the type of device you want to control with your UFO-R11.",
+        "data": {
+          "device_type": "Device Type"
+        }
+      },
+      "code_source": {
+        "title": "IR Code Source",
+        "description": "Choose how to obtain IR codes for your device.",
+        "data": {
+          "code_source": "Code Source"
+        }
+      },
+      "test_device": {
+        "title": "Test Device",
+        "description": "Test your device configuration. Make sure your device responds to the test commands.",
+        "data": {
+          "test_result": "Test Result"
+        }
+      }
+    },
+    "error": {
+      "device_not_found": "UFO-R11 device not found. Please check the device ID and ensure it's connected to Zigbee2MQTT.",
+      "mqtt_connection_failed": "Could not connect to MQTT broker. Please ensure the MQTT integration is properly configured.",
+      "invalid_ir_code": "Invalid IR code format. Please check the code and try again.",
+      "learning_timeout": "IR code learning timed out. Please try again.",
+      "unknown_error": "An unknown error occurred. Please check the logs for more details."
+    },
+    "abort": {
+      "already_configured": "This UFO-R11 device is already configured.",
+      "single_instance_allowed": "Only a single configuration is allowed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "UFO-R11 SmartIR Options",
+        "description": "Configure advanced options for your UFO-R11 SmartIR integration.",
+        "data": {
+          "update_interval": "Update Interval (seconds)",
+          "enable_learning": "Enable IR Code Learning",
+          "auto_export": "Auto-export to SmartIR"
+        },
+        "data_description": {
+          "update_interval": "How often to check device status (10-300 seconds)",
+          "enable_learning": "Allow learning new IR codes from remotes",
+          "auto_export": "Automatically export learned codes to SmartIR format"
+        }
+      }
+    }
+  },
+  "entity": {
+    "climate": {
+      "state_attributes": {
+        "last_command": {
+          "name": "Last Command"
+        },
+        "command_time": {
+          "name": "Command Time"
+        },
+        "available_codes": {
+          "name": "Available Codes"
+        },
+        "device_template": {
+          "name": "Device Template"
+        }
+      }
+    }
+  },
+  "services": {
+    "learn_ir_code": {
+      "name": "Learn IR Code",
+      "description": "Learn a new IR code from a remote control"
+    },
+    "export_smartir": {
+      "name": "Export SmartIR Configuration",
+      "description": "Export device configuration as SmartIR-compatible JSON file"
+    },
+    "import_codes": {
+      "name": "Import IR Codes",
+      "description": "Import IR codes from a file"
+    },
+    "test_command": {
+      "name": "Test IR Command",
+      "description": "Test an IR command by sending it to the device"
+    },
+    "send_raw_command": {
+      "name": "Send Raw IR Command",
+      "description": "Send a raw IR command with specific parameters"
+    },
+    "clear_learned_codes": {
+      "name": "Clear Learned Codes",
+      "description": "Clear all learned IR codes for a device"
+    }
+  },
+  "selector": {
+    "device_type": {
+      "options": {
+        "air_conditioner": "Air Conditioner",
+        "television": "Television",
+        "custom": "Custom Device"
+      }
+    },
+    "code_source": {
+      "options": {
+        "pointcodes": "Point-codes (Recommended)",
+        "learn": "Learn from Remote",
+        "import": "Import from File",
+        "template": "Use Template"
+      }
+    },
+    "test_result": {
+      "options": {
+        "success": "Device responds correctly",
+        "retry": "Device not responding, try different settings"
+      }
+    }
+  }
+}
