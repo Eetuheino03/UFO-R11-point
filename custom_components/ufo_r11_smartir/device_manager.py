@@ -8,9 +8,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv
-from homeassistant.util import dt as dt_util
+from .ha_helpers import HomeAssistant, dt_util
+try:
+    from homeassistant.helpers import config_validation as cv  # type: ignore
+except Exception:  # pragma: no cover - fallback stub
+    class cv:  # type: ignore
+        string = lambda x: x
 
 from .ir_codes import IRCommand, IRCodeSet, IRCodeManager
 from .parser import PointCodesParser, create_pointcodes_parser

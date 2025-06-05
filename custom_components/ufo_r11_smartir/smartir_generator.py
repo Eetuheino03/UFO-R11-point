@@ -7,10 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
-from homeassistant.core import HomeAssistant
-from homeassistant.const import (
-    UnitOfTemperature,
-)
+from .ha_helpers import HomeAssistant
 # Removed unused imports from homeassistant.components.climate.const
 # The non-existent enums were causing import errors and were not used
 

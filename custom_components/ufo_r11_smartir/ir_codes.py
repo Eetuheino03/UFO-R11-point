@@ -9,8 +9,7 @@ from typing import Any, Dict, List, Optional, Union
 from pathlib import Path
 import aiofiles
 
-from homeassistant.core import HomeAssistant
-from homeassistant.util import dt as dt_util
+from .ha_helpers import HomeAssistant, dt_util
 
 from .const import (
     DOMAIN,

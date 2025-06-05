@@ -3,17 +3,60 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from datetime import timedelta
 from typing import Any
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
-from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.components.http import HomeAssistantView
-import voluptuous as vol
+if os.environ.get("USE_HOMEASSISTANT") == "1":
+    try:
+        from homeassistant.config_entries import ConfigEntry  # type: ignore
+        from homeassistant.const import Platform  # type: ignore
+        from homeassistant.core import HomeAssistant  # type: ignore
+        from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady  # type: ignore
+        from homeassistant.helpers import config_validation as cv  # type: ignore
+        from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed  # type: ignore
+        from homeassistant.components.http import HomeAssistantView  # type: ignore
+        import voluptuous as vol
+        HA_AVAILABLE = True
+    except Exception:  # pragma: no cover - allow running without Home Assistant
+        HA_AVAILABLE = False
+else:
+    HA_AVAILABLE = False
+if not HA_AVAILABLE:
+    class HomeAssistant:  # type: ignore
+        pass
+
+    class ConfigEntry:  # type: ignore
+        pass
+
+    class Platform(str):  # type: ignore
+        CLIMATE = "climate"
+
+    class ConfigEntryError(Exception):
+        pass
+
+    class ConfigEntryNotReady(Exception):
+        pass
+
+    class DataUpdateCoordinator:  # type: ignore
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def async_config_entry_first_refresh(self) -> None:
+            return None
+
+    class UpdateFailed(Exception):
+        pass
+
+    class HomeAssistantView:  # type: ignore
+        pass
+
+    class cv:  # type: ignore
+        string = lambda x: x
+        positive_int = int
+
+    import voluptuous as vol
+    HA_AVAILABLE = False
 
 from .const import (
     DOMAIN,
@@ -35,11 +78,12 @@ from .const import (
     CODE_SOURCE_POINTCODES,
     DEVICE_TYPE_AC,
 )
-from .device_manager import DeviceManager
-from .smartir_generator import SmartIRGenerator
-from .api import async_setup_api
-from .frontend_panel import async_setup_frontend_panel, async_unregister_panel
-from .discovery import UFODeviceDiscovery
+if HA_AVAILABLE:
+    from .device_manager import DeviceManager
+    from .smartir_generator import SmartIRGenerator
+    from .api import async_setup_api
+    from .frontend_panel import async_setup_frontend_panel, async_unregister_panel
+    from .discovery import UFODeviceDiscovery
 
 _LOGGER = logging.getLogger(__name__)
 
