@@ -1,10 +1,11 @@
 """Config flow for UFO-R11 SmartIR integration."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-import voluptuous as vol
+from .ha_helpers import vol
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_NAME
@@ -32,19 +33,27 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_USER_DATA_SCHEMA = vol.Schema({
-    vol.Required(CONF_DEVICE_ID): cv.string,
-    vol.Required(CONF_DEVICE_NAME): cv.string,
-    vol.Required(CONF_MQTT_TOPIC): cv.string,
-})
+STEP_USER_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_DEVICE_ID): cv.string,
+        vol.Required(CONF_DEVICE_NAME): cv.string,
+        vol.Required(CONF_MQTT_TOPIC): cv.string,
+    }
+)
 
-STEP_DEVICE_TYPE_DATA_SCHEMA = vol.Schema({
-    vol.Required(CONF_DEVICE_TYPE, default=DEVICE_TYPE_AC): vol.In(DEVICE_TYPES),
-})
+STEP_DEVICE_TYPE_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_DEVICE_TYPE, default=DEVICE_TYPE_AC): vol.In(DEVICE_TYPES),
+    }
+)
 
-STEP_CODE_SOURCE_DATA_SCHEMA = vol.Schema({
-    vol.Required(CONF_CODE_SOURCE, default=CODE_SOURCE_POINTCODES): vol.In(CODE_SOURCES),
-})
+STEP_CODE_SOURCE_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_CODE_SOURCE, default=CODE_SOURCE_POINTCODES): vol.In(
+            CODE_SOURCES
+        ),
+    }
+)
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
@@ -54,21 +63,21 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     """
     device_id = data[CONF_DEVICE_ID]
     mqtt_topic = data[CONF_MQTT_TOPIC]
-    
+
     # Validate MQTT connection and device availability
     if "mqtt" not in hass.config.components:
         raise CannotConnect("MQTT integration not found")
-    
+
     # TODO: Add actual device validation logic
     # This would involve:
     # 1. Check if MQTT broker is reachable
     # 2. Verify UFO-R11 device exists at specified topic
     # 3. Test basic communication with device
-    
+
     # For now, just basic validation
     if not device_id or not mqtt_topic:
         raise InvalidDevice("Device ID and MQTT topic are required")
-    
+
     # Return info that you want to store in the config entry
     return {
         "title": data[CONF_DEVICE_NAME],
@@ -96,18 +105,18 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 info = await validate_input(self.hass, user_input)
-                
+
                 # Check if device is already configured
                 await self.async_set_unique_id(user_input[CONF_DEVICE_ID])
                 self._abort_if_unique_id_configured()
-                
+
                 # Store the basic device info
                 self.device_config.update(user_input)
                 self.device_config["title"] = info["title"]
-                
+
                 # Move to device type selection
                 return await self.async_step_device_type()
-                
+
             except CannotConnect:
                 errors["base"] = ERROR_MQTT_CONNECTION
             except InvalidDevice:
@@ -178,11 +187,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # 1. Load appropriate IR codes based on device type and source
         # 2. Send test commands to the device
         # 3. Provide user interface for confirming device response
-        
+
         # For now, show a simple test form
-        test_schema = vol.Schema({
-            vol.Required("test_result", default="success"): vol.In(["success", "retry"]),
-        })
+        test_schema = vol.Schema(
+            {
+                vol.Required("test_result", default="success"): vol.In(
+                    ["success", "retry"]
+                ),
+            }
+        )
 
         return self.async_show_form(
             step_id="test_device",
@@ -194,37 +207,39 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def async_step_discovery(
-        self, discovery_info: dict[str, Any]
-    ) -> FlowResult:
+    async def async_step_discovery(self, discovery_info: dict[str, Any]) -> FlowResult:
         """Handle discovery of UFO-R11 devices."""
         _LOGGER.info("Processing discovered UFO-R11 device: %s", discovery_info)
-        
+
         # Store discovery info for later use
         self.discovery_info = discovery_info
-        
+
         device_id = discovery_info.get("device_id")
         if device_id:
             await self.async_set_unique_id(device_id)
             self._abort_if_unique_id_configured()
-            
+
             # Pre-populate form with discovered information
             device_name = discovery_info.get("name", f"UFO-R11 {device_id[-8:]}")
-            mqtt_topic = discovery_info.get("topic") # MQTT specific
-            host = discovery_info.get("host") # Zeroconf/SSDP specific
-            port = discovery_info.get("port") # Zeroconf/SSDP specific
+            mqtt_topic = discovery_info.get("topic")  # MQTT specific
+            host = discovery_info.get("host")  # Zeroconf/SSDP specific
+            port = discovery_info.get("port")  # Zeroconf/SSDP specific
             discovery_source = discovery_info.get("discovery_source", "unknown")
 
-            self.device_config.update({
-                CONF_DEVICE_ID: device_id,
-                CONF_DEVICE_NAME: device_name,
-                CONF_DEVICE_TYPE: discovery_info.get("device_type", DEVICE_TYPE_AC),
-                CONF_CODE_SOURCE: discovery_info.get("code_source", CODE_SOURCE_POINTCODES),
-                # Store discovery source and related network info
-                "discovery_source": discovery_source,
-                "host": host,
-                "port": port,
-            })
+            self.device_config.update(
+                {
+                    CONF_DEVICE_ID: device_id,
+                    CONF_DEVICE_NAME: device_name,
+                    CONF_DEVICE_TYPE: discovery_info.get("device_type", DEVICE_TYPE_AC),
+                    CONF_CODE_SOURCE: discovery_info.get(
+                        "code_source", CODE_SOURCE_POINTCODES
+                    ),
+                    # Store discovery source and related network info
+                    "discovery_source": discovery_source,
+                    "host": host,
+                    "port": port,
+                }
+            )
 
             # MQTT topic is still primary for this integration's current device comms
             # If not an MQTT discovery, we might need a placeholder or adapt further.
@@ -234,23 +249,26 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Assuming MQTT is still the core communication method for IR commands.
             if mqtt_topic:
                 self.device_config[CONF_MQTT_TOPIC] = mqtt_topic
-            elif host : # If discovered via network, create a placeholder topic or decide strategy
+            elif (
+                host
+            ):  # If discovered via network, create a placeholder topic or decide strategy
                 # This part depends on how non-MQTT devices would be controlled.
                 # If they still use MQTT via a bridge, this topic might be derivable.
                 # If they use direct IP communication, CONF_MQTT_TOPIC might become optional/irrelevant.
                 # For now, let's assume a default pattern if it's a network discovery
                 # that might still be bridged to MQTT by some other means, or user needs to fill it.
-                self.device_config[CONF_MQTT_TOPIC] = f"{discovery_info.get(CONF_MQTT_TOPIC, f'ufo_r11/{device_id}')}"
-            else: # Fallback if no topic and no host
-                 self.device_config[CONF_MQTT_TOPIC] = f"zigbee2mqtt/{device_id}"
-
+                self.device_config[CONF_MQTT_TOPIC] = (
+                    f"{discovery_info.get(CONF_MQTT_TOPIC, f'ufo_r11/{device_id}')}"
+                )
+            else:  # Fallback if no topic and no host
+                self.device_config[CONF_MQTT_TOPIC] = f"zigbee2mqtt/{device_id}"
 
             # Show discovery confirmation form
             return await self.async_step_discovery_confirm()
-        
+
         # Fall back to manual configuration
         return await self.async_step_user()
-    
+
     async def async_step_discovery_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -265,22 +283,28 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 # User declined, allow manual configuration
                 return await self.async_step_user()
-        
+
         # Show confirmation form
-        discovery_schema = vol.Schema({
-            vol.Required("confirm_discovery", default=True): bool,
-        })
-        
+        discovery_schema = vol.Schema(
+            {
+                vol.Required("confirm_discovery", default=True): bool,
+            }
+        )
+
         return self.async_show_form(
             step_id="discovery_confirm",
             data_schema=discovery_schema,
             description_placeholders={
                 "device_name": self.device_config.get(CONF_DEVICE_NAME, "Unknown"),
                 "device_id": self.device_config.get(CONF_DEVICE_ID, "Unknown"),
-                "mqtt_topic": self.device_config.get(CONF_MQTT_TOPIC, "N/A if direct IP"),
+                "mqtt_topic": self.device_config.get(
+                    CONF_MQTT_TOPIC, "N/A if direct IP"
+                ),
                 "host": self.device_config.get("host", "N/A"),
                 "port": self.device_config.get("port", "N/A"),
-                "discovery_source": self.device_config.get("discovery_source", "Unknown"),
+                "discovery_source": self.device_config.get(
+                    "discovery_source", "Unknown"
+                ),
             },
         )
 
@@ -310,24 +334,26 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        options_schema = vol.Schema({
-            vol.Optional(
-                "update_interval",
-                default=self.config_entry.options.get("update_interval", 30),
-            ): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
-            vol.Optional(
-                "enable_learning",
-                default=self.config_entry.options.get("enable_learning", True),
-            ): bool,
-            vol.Optional(
-                "enable_discovery",
-                default=self.config_entry.options.get("enable_discovery", True),
-            ): bool,
-            vol.Optional(
-                "auto_export",
-                default=self.config_entry.options.get("auto_export", False),
-            ): bool,
-        })
+        options_schema = vol.Schema(
+            {
+                vol.Optional(
+                    "update_interval",
+                    default=self.config_entry.options.get("update_interval", 30),
+                ): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
+                vol.Optional(
+                    "enable_learning",
+                    default=self.config_entry.options.get("enable_learning", True),
+                ): bool,
+                vol.Optional(
+                    "enable_discovery",
+                    default=self.config_entry.options.get("enable_discovery", True),
+                ): bool,
+                vol.Optional(
+                    "auto_export",
+                    default=self.config_entry.options.get("auto_export", False),
+                ): bool,
+            }
+        )
 
         return self.async_show_form(
             step_id="init",
