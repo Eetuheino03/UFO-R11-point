@@ -1,0 +1,7 @@
+{
+  "name": "UFO-R11 SmartIR",
+  "content_in_root": false,
+  "domains": ["ufo_r11_smartir"],
+  "homeassistant": "2023.0.0",
+  "render_readme": true
+}

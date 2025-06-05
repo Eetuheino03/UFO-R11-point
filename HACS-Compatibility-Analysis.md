@@ -32,15 +32,15 @@ ufo-r11-smartir/                         # Git repository root
 ```
 
 ### 3. 🏷️ **Git Tag Management** (High Priority)
-- **Current Status**: No Git tags exist (`.git/refs/tags/` is empty)
-- **Manifest Version**: `1.0.0` with no corresponding Git tag
-- **HACS Behavior**: Shows version "00ef676" (commit hash) instead of semantic version
-- **Impact**: HACS cannot validate version compatibility
+- **Current Status**: Git tags from `v0.1.0` to `v1.0.7` exist
+- **Manifest Version**: `1.0.7` matching the latest tag
+- **HACS Behavior**: Uses semantic version tags correctly
+- **Impact**: Version compatibility validated by HACS
 
 ### 4. 🔗 **Repository URL Inconsistencies** (Medium Priority)
 **Manifest References**:
-- `documentation`: `https://github.com/UFO-R11/ufo-r11-smartir`
-- `issue_tracker`: `https://github.com/UFO-R11/ufo-r11-smartir/issues`
+- `documentation`: `https://github.com/Eetuheino03/UFO-R11-point`
+- `issue_tracker`: `https://github.com/Eetuheino03/UFO-R11-point/issues`
 
 **Actual Repository**: `https://github.com/Eetuheino03/UFO-R11-point.git`
 
@@ -222,8 +222,8 @@ integration-name/
 ### 🏷️ **Git Tag Creation**
 ```bash
 # Create and push version tag
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.7
+git push origin v1.0.7
 
 # Verify tag creation
 git tag -l
@@ -231,8 +231,9 @@ git tag -l
 
 ### 🔧 **Quick HACS Test Setup**
 1. Fix the `FanMode` import issue
-2. Create v1.0.0 Git tag
-3. Test HACS installation with custom repository URL
+2. Ensure `hacs.json` is present
+3. Create v1.0.7 Git tag
+4. Test HACS installation with custom repository URL
 
 ## Strategic Recommendation
 

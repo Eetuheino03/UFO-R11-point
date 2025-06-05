@@ -87,7 +87,7 @@ The learning interface provides an intuitive step-by-step process:
 1. Open HACS in your Home Assistant
 2. Go to "Integrations"
 3. Click the three dots menu and select "Custom repositories"
-4. Add this repository URL: `https://github.com/UFO-R11/ufo-r11-smartir`
+4. Add this repository URL: `https://github.com/Eetuheino03/UFO-R11-point`
 5. Select "Integration" as the category
 6. Click "Add"
 7. Search for "UFO-R11 SmartIR" and install
@@ -408,9 +408,9 @@ The integration provides comprehensive REST API endpoints:
 
 ## Support
 
-- **Documentation**: [GitHub Wiki](https://github.com/UFO-R11/ufo-r11-smartir/wiki)
-- **Issues**: [GitHub Issues](https://github.com/UFO-R11/ufo-r11-smartir/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/UFO-R11/ufo-r11-smartir/discussions)
+- **Documentation**: [GitHub Wiki](https://github.com/Eetuheino03/UFO-R11-point/wiki)
+- **Issues**: [GitHub Issues](https://github.com/Eetuheino03/UFO-R11-point/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Eetuheino03/UFO-R11-point/discussions)
 - **Community**: [Home Assistant Community Forum](https://community.home-assistant.io)
 
 ## License
