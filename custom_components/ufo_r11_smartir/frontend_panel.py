@@ -48,6 +48,17 @@ async def async_register_panel(hass: HomeAssistant) -> None:
                 cache_headers=True,
             )
         
+        # Prepare panel configuration shared between registration methods
+        panel_name = f"panel-custom-{DOMAIN.replace('_', '-')}"
+        js_url = f"/api/{DOMAIN}/static/ufo-r11-panel.js"
+        css_url = f"/api/{DOMAIN}/static/ufo-r11-styles.css"
+        common_panel_args = {
+            "sidebar_title": "UFO-R11 SmartIR",
+            "sidebar_icon": "mdi:remote",
+            "frontend_url_path": DOMAIN,
+            "require_admin": False,
+        }
+
         # Register the frontend panel
         panel_registered_successfully = False
         
@@ -56,38 +67,21 @@ async def async_register_panel(hass: HomeAssistant) -> None:
             _LOGGER.debug("Attempting to register panel using async_register_built_in_panel")
             try:
                 register_fn = frontend.async_register_built_in_panel
+                builtin_kwargs = {
+                    **common_panel_args,
+                    "component_name": "custom",
+                    "config": {
+                        "_panel_custom": {
+                            "name": panel_name,
+                            "js_url": js_url,
+                            "css_url": css_url,
+                        }
+                    },
+                }
                 if iscoroutinefunction(register_fn):
-                    await register_fn(
-                        hass,
-                        component_name="custom",
-                        sidebar_title="UFO-R11 SmartIR",
-                        sidebar_icon="mdi:remote",
-                        frontend_url_path=DOMAIN,
-                        config={
-                            "_panel_custom": {
-                                "name": f"panel-custom-{DOMAIN.replace('_', '-')}",
-                                "js_url": f"/api/{DOMAIN}/static/ufo-r11-panel.js",
-                                "css_url": f"/api/{DOMAIN}/static/ufo-r11-styles.css",
-                            },
-                        },
-                        require_admin=False,
-                    )
+                    await register_fn(hass, **builtin_kwargs)
                 else:
-                    register_fn(
-                        hass,
-                        component_name="custom",
-                        sidebar_title="UFO-R11 SmartIR",
-                        sidebar_icon="mdi:remote",
-                        frontend_url_path=DOMAIN,
-                        config={
-                            "_panel_custom": {
-                                "name": f"panel-custom-{DOMAIN.replace('_', '-')}",
-                                "js_url": f"/api/{DOMAIN}/static/ufo-r11-panel.js",
-                                "css_url": f"/api/{DOMAIN}/static/ufo-r11-styles.css",
-                            },
-                        },
-                        require_admin=False,
-                    )
+                    register_fn(hass, **builtin_kwargs)
                 panel_registered_successfully = True
                 _LOGGER.info("Panel registered using async_register_built_in_panel")
             except Exception as e_builtin:
@@ -98,28 +92,16 @@ async def async_register_panel(hass: HomeAssistant) -> None:
             _LOGGER.debug("Attempting to register panel using panel_custom.async_register_panel")
             try:
                 register_custom = panel_custom.async_register_panel
+                custom_kwargs = {
+                    **common_panel_args,
+                    "webcomponent_name": panel_name,
+                    "module_url": js_url,
+                    "embed_iframe": True,
+                }
                 if iscoroutinefunction(register_custom):
-                    await register_custom(
-                        hass,
-                        frontend_url_path=DOMAIN,
-                        webcomponent_name=f"panel-custom-{DOMAIN.replace('_', '-')}",
-                        sidebar_title="UFO-R11 SmartIR",
-                        sidebar_icon="mdi:remote",
-                        module_url=f"/api/{DOMAIN}/static/ufo-r11-panel.js",
-                        embed_iframe=True,
-                        require_admin=False,
-                    )
+                    await register_custom(hass, **custom_kwargs)
                 else:
-                    register_custom(
-                        hass,
-                        frontend_url_path=DOMAIN,
-                        webcomponent_name=f"panel-custom-{DOMAIN.replace('_', '-')}",
-                        sidebar_title="UFO-R11 SmartIR",
-                        sidebar_icon="mdi:remote",
-                        module_url=f"/api/{DOMAIN}/static/ufo-r11-panel.js",
-                        embed_iframe=True,
-                        require_admin=False,
-                    )
+                    register_custom(hass, **custom_kwargs)
                 panel_registered_successfully = True
                 _LOGGER.info("Panel registered using panel_custom.async_register_panel")
             except Exception as e_panel:
